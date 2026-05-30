@@ -1,52 +1,32 @@
 // DOM Elements
-const canvas = document.getElementById('videoCanvas');
-const ctx = canvas.getContext('2d');
+const videoStream = document.getElementById('videoStream');
 const uploadArea = document.getElementById('uploadArea');
 const fileInput = document.getElementById('fileInput');
 const uploadStatus = document.getElementById('uploadStatus');
 const targetsList = document.getElementById('targetsList');
+const resolutionSelect = document.getElementById('resolutionSelect');
+const applyResolutionBtn = document.getElementById('applyResolutionBtn');
+const resolutionStatus = document.getElementById('resolutionStatus');
 
 // Video stream
-let streamImage = new Image();
-let isStreaming = false;
-let isFetching = false;
+let streamRetryTimer = null;
 
 function startVideoStream() {
-    isStreaming = true;
-    streamImage.crossOrigin = "anonymous";
-    
-    async function fetchFrame() {
-        if (!isStreaming || isFetching) return;
-        
-        isFetching = true;
-        
-        try {
-            const controller = new AbortController();
-            const timeout = setTimeout(() => controller.abort(), 5000);  // 5 second timeout
-            
-            const response = await fetch('/frame?t=' + Date.now(), { signal: controller.signal });
-            clearTimeout(timeout);
-            
-            if (!response.ok) throw new Error('Frame fetch failed');
-            const blob = await response.blob();
-            
-            const url = URL.createObjectURL(blob);
-            streamImage.onload = () => {
-                URL.revokeObjectURL(url);
-                ctx.drawImage(streamImage, 0, 0);
-            };
-            streamImage.src = url;
-        } catch (err) {
-            if (err.name !== 'AbortError') {
-                console.error('Stream error:', err);
-            }
+    const connect = () => {
+        if (streamRetryTimer) {
+            clearTimeout(streamRetryTimer);
+            streamRetryTimer = null;
         }
-        
-        isFetching = false;
-    }
-    
-    // Fixed 10 FPS interval for stable streaming
-    setInterval(fetchFrame, 100);  // ~10 FPS
+
+        // Cache-bust reconnects so browser always re-establishes stream cleanly.
+        videoStream.src = `/video_feed?t=${Date.now()}`;
+    };
+
+    videoStream.onerror = () => {
+        streamRetryTimer = setTimeout(connect, 1000);
+    };
+
+    connect();
 }
 
 startVideoStream();
@@ -136,6 +116,66 @@ async function refreshTargets() {
     }
 }
 
+async function refreshResolution() {
+    try {
+        const response = await fetch('/camera_resolution');
+        if (!response.ok) {
+            throw new Error('Failed to read camera resolution');
+        }
+
+        const data = await response.json();
+        if (Array.isArray(data.available) && data.available.length) {
+            resolutionSelect.innerHTML = data.available
+                .map(preset => `<option value="${preset}">${preset}</option>`)
+                .join('');
+        }
+
+        if (data.current) {
+            resolutionSelect.value = data.current;
+        }
+    } catch (error) {
+        console.error('Resolution fetch error:', error);
+    }
+}
+
+function showResolutionStatus(message, type) {
+    resolutionStatus.textContent = message;
+    resolutionStatus.className = `status-message show ${type}`;
+
+    if (type !== 'loading') {
+        setTimeout(() => {
+            resolutionStatus.classList.remove('show');
+        }, 3000);
+    }
+}
+
+async function applyResolution() {
+    const preset = resolutionSelect.value;
+    if (!preset) return;
+
+    applyResolutionBtn.disabled = true;
+    showResolutionStatus(`Switching to ${preset}...`, 'loading');
+
+    try {
+        const response = await fetch(`/camera_resolution/${encodeURIComponent(preset)}`, {
+            method: 'POST'
+        });
+
+        const result = await response.json();
+        if (!response.ok) {
+            throw new Error(result.detail || 'Resolution switch failed');
+        }
+
+        resolutionSelect.value = result.current;
+        showResolutionStatus(`✓ Camera set to ${result.current} (${result.actual_width}x${result.actual_height})`, 'success');
+    } catch (error) {
+        showResolutionStatus(`✗ ${error.message}`, 'error');
+        console.error('Resolution apply error:', error);
+    } finally {
+        applyResolutionBtn.disabled = false;
+    }
+}
+
 function renderTargets(targets, currentTarget) {
     if (targets.length === 0) {
         targetsList.innerHTML = '<p class="empty">No targets loaded yet</p>';
@@ -206,9 +246,14 @@ function showStatus(message, type) {
     }
 }
 
+applyResolutionBtn.addEventListener('click', () => {
+    applyResolution();
+});
+
 // Load targets on page load
 document.addEventListener('DOMContentLoaded', () => {
     refreshTargets();
+    refreshResolution();
     
     // Refresh targets every 5 seconds
     setInterval(refreshTargets, 5000);

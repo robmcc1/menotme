@@ -74,6 +74,14 @@ target_faces = {}  # {filename: face_embedding}
 current_target = None
 frame_lock = threading.Lock()
 process_lock = threading.Lock()
+camera_lock = threading.Lock()
+
+CAMERA_RESOLUTION_PRESETS = {
+    "480p": (640, 480),
+    "720p": (1280, 720),
+    "1080p": (1920, 1080),
+}
+current_camera_resolution = "480p"
 
 # Frame buffers
 raw_frame = None  # Latest captured frame
@@ -176,8 +184,8 @@ except Exception as e:
 # Webcam capture
 print("🎥 Attempting to open webcam...")
 cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)  # Use DirectShow backend on Windows
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+cap.set(cv2.CAP_PROP_FRAME_WIDTH, CAMERA_RESOLUTION_PRESETS[current_camera_resolution][0])
+cap.set(cv2.CAP_PROP_FRAME_HEIGHT, CAMERA_RESOLUTION_PRESETS[current_camera_resolution][1])
 cap.set(cv2.CAP_PROP_FPS, 60)  # Request 60 FPS
 cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Only keep latest frame, drop old ones
 
@@ -186,8 +194,40 @@ if not cap.isOpened():
     exit(1)
 
 actual_fps = cap.get(cv2.CAP_PROP_FPS)
-print(f"✓ Webcam opened successfully (640x480 @ {actual_fps:.0f} FPS)")
+actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+print(f"✓ Webcam opened successfully ({actual_width}x{actual_height} @ {actual_fps:.0f} FPS)")
 print("✓ Ready to process frames")
+
+
+def _closest_preset_name(width, height):
+    target_area = int(width) * int(height)
+    return min(
+        CAMERA_RESOLUTION_PRESETS.keys(),
+        key=lambda name: abs(CAMERA_RESOLUTION_PRESETS[name][0] * CAMERA_RESOLUTION_PRESETS[name][1] - target_area)
+    )
+
+
+def set_camera_resolution(preset_name):
+    """Set webcam capture resolution preset at runtime."""
+    global current_camera_resolution
+
+    if preset_name not in CAMERA_RESOLUTION_PRESETS:
+        raise ValueError("Unsupported resolution preset")
+
+    width, height = CAMERA_RESOLUTION_PRESETS[preset_name]
+    with camera_lock:
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
+        cap.set(cv2.CAP_PROP_FPS, 60)
+
+        actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        actual_fps = cap.get(cv2.CAP_PROP_FPS)
+
+        current_camera_resolution = _closest_preset_name(actual_width, actual_height)
+
+    return actual_width, actual_height, actual_fps, current_camera_resolution
 
 def extract_face_from_image(image_path):
     """Extract face embedding from an image file"""
@@ -249,7 +289,8 @@ def webcam_capture_thread():
     global raw_frame
     
     while True:
-        ret, frame = cap.read()
+        with camera_lock:
+            ret, frame = cap.read()
         if not ret:
             time.sleep(0.05)
             continue
@@ -308,7 +349,7 @@ def generate_mjpeg():
     """Generator for MJPEG stream"""
     frame_count = 0
     while True:
-        with frame_lock:
+        with process_lock:
             if latest_frame is None:
                 time.sleep(0.01)
                 continue
@@ -328,8 +369,11 @@ def generate_mjpeg():
 
 @app.get("/video_feed")
 async def video_feed():
-    """MJPEG stream endpoint (deprecated, use /frame instead)"""
-    return {"message": "Use /frame endpoint instead"}
+    """MJPEG stream endpoint"""
+    return StreamingResponse(
+        generate_mjpeg(),
+        media_type="multipart/x-mixed-replace; boundary=frame"
+    )
 
 @app.get("/frame")
 async def get_frame():
@@ -381,6 +425,42 @@ async def list_targets():
         "targets": list(target_faces.keys()),
         "current": current_target
     }
+
+
+@app.get("/camera_resolution")
+async def get_camera_resolution():
+    """Get current camera resolution state and presets."""
+    with camera_lock:
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        fps = float(cap.get(cv2.CAP_PROP_FPS))
+
+    return {
+        "current": current_camera_resolution,
+        "available": list(CAMERA_RESOLUTION_PRESETS.keys()),
+        "actual_width": width,
+        "actual_height": height,
+        "actual_fps": fps,
+    }
+
+
+@app.post("/camera_resolution/{preset_name}")
+async def set_camera_resolution_endpoint(preset_name: str):
+    """Set camera resolution using a preset name."""
+    try:
+        width, height, fps, resolved_preset = set_camera_resolution(preset_name)
+        return {
+            "status": "success",
+            "requested": preset_name,
+            "current": resolved_preset,
+            "actual_width": width,
+            "actual_height": height,
+            "actual_fps": fps,
+        }
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Unsupported resolution preset")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to switch camera resolution: {e}")
 
 @app.post("/set_target/{filename}")
 async def set_target(filename: str):

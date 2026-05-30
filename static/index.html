@@ -16,7 +16,7 @@
         <main>
             <div class="video-section">
                 <div class="video-container">
-                    <canvas id="videoCanvas" width="640" height="480"></canvas>
+                    <img id="videoStream" src="" alt="Live webcam stream" />
                     <div class="video-status">
                         <span id="status">🎥 Live</span>
                     </div>
@@ -39,6 +39,19 @@
                     <div id="targetsList" class="targets-container">
                         <p class="empty">No targets loaded yet</p>
                     </div>
+                </div>
+
+                <div class="camera-panel">
+                    <h2>Camera Resolution</h2>
+                    <div class="camera-controls">
+                        <select id="resolutionSelect" class="resolution-select">
+                            <option value="480p">480p</option>
+                            <option value="720p">720p</option>
+                            <option value="1080p">1080p</option>
+                        </select>
+                        <button id="applyResolutionBtn" class="btn-small btn-resolution">Apply</button>
+                    </div>
+                    <div id="resolutionStatus" class="status-message"></div>
                 </div>
 
                 <div class="info-panel">
