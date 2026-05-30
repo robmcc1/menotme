@@ -75,6 +75,7 @@ current_target = None
 frame_lock = threading.Lock()
 process_lock = threading.Lock()
 camera_lock = threading.Lock()
+shutdown_event = threading.Event()
 
 CAMERA_RESOLUTION_PRESETS = {
     "480p": (640, 480),
@@ -82,6 +83,8 @@ CAMERA_RESOLUTION_PRESETS = {
     "1080p": (1920, 1080),
 }
 current_camera_resolution = "480p"
+capture_worker = None
+process_worker = None
 
 # Frame buffers
 raw_frame = None  # Latest captured frame
@@ -288,7 +291,7 @@ def webcam_capture_thread():
     """Capture frames as fast as possible - NO PROCESSING"""
     global raw_frame
     
-    while True:
+    while not shutdown_event.is_set():
         with camera_lock:
             ret, frame = cap.read()
         if not ret:
@@ -307,7 +310,7 @@ def face_processing_thread():
     global latest_frame
     last_raw = None
     
-    while True:
+    while not shutdown_event.is_set():
         # Get latest raw frame
         with frame_lock:
             current_raw = raw_frame
@@ -494,6 +497,13 @@ async def delete_target(filename: str):
 
 @app.on_event("shutdown")
 async def shutdown():
+    shutdown_event.set()
+
+    if capture_worker is not None and capture_worker.is_alive():
+        capture_worker.join(timeout=1.0)
+    if process_worker is not None and process_worker.is_alive():
+        process_worker.join(timeout=1.0)
+
     cap.release()
     print("Webcam released")
 
@@ -518,4 +528,13 @@ if __name__ == "__main__":
     # Disable access logging
     logging.getLogger("uvicorn.access").setLevel(logging.CRITICAL)
     
-    uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
+    try:
+        uvicorn.run(app, host="0.0.0.0", port=8000, log_level="warning")
+    except KeyboardInterrupt:
+        print("\nCtrl+C received, shutting down...")
+    finally:
+        shutdown_event.set()
+        try:
+            cap.release()
+        except Exception:
+            pass
