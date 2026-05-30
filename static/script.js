@@ -16,6 +16,7 @@ const voiceOutputDeviceSelect = document.getElementById('voiceOutputDevice');
 const voiceGateThresholdInput = document.getElementById('voiceGateThreshold');
 const voiceGateHoldMsInput = document.getElementById('voiceGateHoldMs');
 const voiceGateReleaseMsInput = document.getElementById('voiceGateReleaseMs');
+const voiceNoiseGateEnabledCheckbox = document.getElementById('voiceNoiseGateEnabled');
 const voicePresetSelect = document.getElementById('voicePreset');
 const voiceUseVirtualOutputCheckbox = document.getElementById('voiceUseVirtualOutput');
 const voiceRefreshDevicesBtn = document.getElementById('voiceRefreshDevicesBtn');
@@ -241,18 +242,18 @@ async function startVoice() {
 
     const preset = voicePresetSelect?.value || 'speech';
     const presetConfig = {
-        speech: { index_rate: 0.06, protect: 0.80, block_seconds: 0.32, dry_mix: 0.42 },
-        balanced: { index_rate: 0.18, protect: 0.62, block_seconds: 0.28, dry_mix: 0.24 },
-        character: { index_rate: 0.35, protect: 0.42, block_seconds: 0.24, dry_mix: 0.12 },
-    }[preset] || { index_rate: 0.06, protect: 0.80, block_seconds: 0.32, dry_mix: 0.42 };
+        speech: { index_rate: 0.40, protect: 0.33, block_seconds: 0.50, dry_mix: 0.0 },
+        balanced: { index_rate: 0.35, protect: 0.40, block_seconds: 0.50, dry_mix: 0.0 },
+        character: { index_rate: 0.50, protect: 0.33, block_seconds: 0.60, dry_mix: 0.0 },
+    }[preset] || { index_rate: 0.40, protect: 0.33, block_seconds: 0.50, dry_mix: 0.0 };
 
     const payload = {
         pitch: Number(voicePitchInput.value || 0),
         index_rate: Number(voiceIndexRateInput.value || presetConfig.index_rate),
         block_seconds: Number(voiceBlockSecondsInput.value || presetConfig.block_seconds),
         f0_method: voiceF0MethodSelect.value || 'harvest',
-        noise_gate_enabled: false,
-        noise_gate_threshold: Number(voiceGateThresholdInput?.value || 0.008),
+        noise_gate_enabled: voiceNoiseGateEnabledCheckbox ? voiceNoiseGateEnabledCheckbox.checked : true,
+        noise_gate_threshold: Number(voiceGateThresholdInput?.value || 0.025),
         noise_gate_hold_ms: Number(voiceGateHoldMsInput?.value || 140),
         noise_gate_release_ms: Number(voiceGateReleaseMsInput?.value || 70),
         protect: presetConfig.protect,
