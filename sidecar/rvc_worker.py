@@ -108,22 +108,22 @@ class WorkerVoiceEngine:
         self.backend = "rvc"
 
         self.sample_rate = 24000
-        self.block_seconds = 0.24
+        self.block_seconds = 0.50
         self.input_device = None
         self.output_device = None
 
         self.pitch = 0
-        self.index_rate = 0.06
+        self.index_rate = 0.40
         self.f0_method = "harvest"
-        self.protect = 0.80
-        self.dry_mix = 0.42
+        self.protect = 0.33
+        self.dry_mix = 0.0
         self.device = _select_rvc_device()
 
         self.model_pth = None
         self.model_index = None
 
-        self.noise_gate_enabled = False
-        self.noise_gate_threshold = 0.012
+        self.noise_gate_enabled = True
+        self.noise_gate_threshold = 0.025
         self.noise_gate_hold_ms = 140
         self.noise_gate_release_ms = 70
         self._noise_gate_hold_remaining = 0
@@ -139,6 +139,7 @@ class WorkerVoiceEngine:
         self._crossfade_seconds = 0.012
         self._last_output_value = 0.0
         self._underrun_events = 0
+        self._recovering_from_underrun = False
 
         self._rvc = None
 
@@ -319,13 +320,18 @@ class WorkerVoiceEngine:
                 needed = 0
 
         data = np.concatenate(chunks) if chunks else np.zeros(frames, dtype=np.float32)
-        if had_underrun and len(data) > 0:
-            self._last_output_value = float(data[-1])
-        elif len(data) > 0:
-            # Light fade-in after recovery to avoid click at chunk boundaries.
+        if had_underrun:
+            self._last_output_value = float(data[-1]) if len(data) > 0 else 0.0
+            self._recovering_from_underrun = True
+        elif self._recovering_from_underrun and len(data) > 0:
+            # Apply fade-in only on the first frame after recovering from an underrun
+            # to avoid a click at the resumption boundary.
             fade_n = min(len(data), max(1, int(self.sample_rate * 0.006)))
             fade = np.linspace(0.0, 1.0, num=fade_n, endpoint=True, dtype=np.float32)
             data[:fade_n] *= fade
+            self._last_output_value = float(data[-1])
+            self._recovering_from_underrun = False
+        elif len(data) > 0:
             self._last_output_value = float(data[-1])
 
         if len(data) < frames:
@@ -435,21 +441,22 @@ class WorkerVoiceEngine:
                 raise RuntimeError("Voice is already running")
 
             self.pitch = int(cfg.get("pitch", 0))
-            self.index_rate = float(cfg.get("index_rate", 0.06))
+            self.index_rate = float(cfg.get("index_rate", 0.40))
             self.f0_method = str(cfg.get("f0_method", "harvest"))
-            self.protect = float(cfg.get("protect", 0.80))
+            self.protect = float(cfg.get("protect", 0.33))
             self.sample_rate = max(8000, int(cfg.get("sample_rate", 24000)))
-            self.block_seconds = max(0.08, min(1.2, float(cfg.get("block_seconds", 0.32))))
-            self.noise_gate_enabled = bool(cfg.get("noise_gate_enabled", False))
-            self.noise_gate_threshold = float(cfg.get("noise_gate_threshold", 0.008))
+            self.block_seconds = max(0.08, min(1.2, float(cfg.get("block_seconds", 0.50))))
+            self.noise_gate_enabled = bool(cfg.get("noise_gate_enabled", True))
+            self.noise_gate_threshold = float(cfg.get("noise_gate_threshold", 0.025))
             self.noise_gate_hold_ms = int(cfg.get("noise_gate_hold_ms", 140))
             self.noise_gate_release_ms = int(cfg.get("noise_gate_release_ms", 70))
-            self.dry_mix = float(np.clip(cfg.get("dry_mix", 0.42), 0.0, 0.65))
+            self.dry_mix = float(np.clip(cfg.get("dry_mix", 0.0), 0.0, 0.65))
             self._noise_gate_hold_remaining = 0
             self._noise_gate_gain = 0.0
             self._pending_tail = None
             self._last_output_value = 0.0
             self._underrun_events = 0
+            self._recovering_from_underrun = False
 
             self.input_device = self._resolve_device_index(cfg.get("input_device"), "input")
 
