@@ -6,4 +6,11 @@ numpy>=1.24.0,<2.0
 pillow>=10.0.0
 python-multipart>=0.0.6
 onnx>=1.14.0
-onnxruntime>=1.16.0
+onnxruntime-gpu>=1.16.0
+# Optional voice-conversion backend (Windows Python 3.12 may not support this dependency stack).
+# Install manually only if your environment supports it:
+#   python -m pip install rvc-python==0.1.5
+sounddevice>=0.4.7
+soundfile>=0.12.1
+scipy>=1.10.0
+pedalboard>=0.9.23

@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI Voice Audio App</title>
+    <link rel="stylesheet" href="audio.css" />
+</head>
+<body>
+    <div class="shell">
+        <header class="hero">
+            <h1>AI Voice Audio App</h1>
+            <p>Real-time voice changer controls without camera UI (RVC model mode).</p>
+        </header>
+
+        <main class="panel">
+            <section class="card">
+                <h2>Voice Controls</h2>
+                <div class="grid">
+                    <label>
+                        Pitch (semitones)
+                        <input id="voicePitch" type="number" value="0" min="-24" max="24" step="1" />
+                    </label>
+                    <label>
+                        Index Rate
+                        <input id="voiceIndexRate" type="number" value="0.10" min="0" max="1" step="0.05" />
+                    </label>
+                    <label>
+                        Block Seconds
+                        <input id="voiceBlockSeconds" type="number" value="0.32" min="0.08" max="1.2" step="0.01" />
+                    </label>
+                    <label>
+                        F0 Method
+                        <select id="voiceF0Method">
+                            <option value="harvest" selected>harvest</option>
+                            <option value="rmvpe">rmvpe</option>
+                            <option value="pm">pm</option>
+                        </select>
+                    </label>
+                    <label>
+                        Mic Input Device
+                        <select id="voiceInputDevice">
+                            <option value="auto">Auto (default)</option>
+                        </select>
+                    </label>
+                    <label>
+                        Output Device
+                        <select id="voiceOutputDevice">
+                            <option value="auto">Auto (default)</option>
+                        </select>
+                    </label>
+                    <label>
+                        Noise Gate Threshold
+                        <input id="voiceGateThreshold" type="number" value="0.008" min="0.002" max="0.08" step="0.001" />
+                    </label>
+                    <label>
+                        Gate Hold (ms)
+                        <input id="voiceGateHoldMs" type="number" value="140" min="0" max="500" step="10" />
+                    </label>
+                    <label>
+                        Gate Release (ms)
+                        <input id="voiceGateReleaseMs" type="number" value="70" min="10" max="500" step="10" />
+                    </label>
+                </div>
+
+                <div class="options-row">
+                    <label class="checkbox">
+                        <input id="voiceUseVirtualOutput" type="checkbox" />
+                        Prefer virtual output (VB-CABLE / Voicemeeter)
+                    </label>
+                    <select id="voicePreset" aria-label="Voice preset">
+                        <option value="speech" selected>Speech clarity</option>
+                        <option value="balanced">Balanced</option>
+                        <option value="character">Character</option>
+                    </select>
+                    <button id="voiceRefreshDevicesBtn" class="btn btn-muted">Refresh Devices</button>
+                </div>
+
+                <div class="actions">
+                    <button id="voiceStartBtn" class="btn btn-primary">Start Voice</button>
+                    <button id="voiceStopBtn" class="btn btn-danger">Stop Voice</button>
+                </div>
+
+                <div id="voiceStatus" class="status"></div>
+            </section>
+
+            <section class="card">
+                <h2>Quick Route</h2>
+                <ol>
+                    <li>Start voice here.</li>
+                    <li>Set app output to CABLE Input (if using VB-CABLE).</li>
+                    <li>Set Zoom/Discord mic to CABLE Output.</li>
+                </ol>
+                <a class="link" href="/">Back to full app</a>
+            </section>
+        </main>
+    </div>
+
+    <script src="audio.js"></script>
+</body>
+</html>

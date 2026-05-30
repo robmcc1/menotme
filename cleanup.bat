@@ -6,10 +6,16 @@ echo =============================================
 echo.
 echo This will remove:
 echo   [1] Python venv + all pip packages
-echo   [2] InsightFace AI models (~1.5GB)
-echo   [3] inswapper_128.onnx model
-echo   [4] Uploaded face images
-echo   [5] Project temp files
+echo   [2] Python 3.10 sidecar venv + all pip packages
+echo   [3] Extracted RVC voice models
+echo   [4] InsightFace AI models (~1.5GB)
+echo   [5] inswapper_128.onnx model
+echo   [6] Uploaded face images
+echo   [7] Project temp files
+echo.
+echo Optional uninstall (prompted later):
+echo   - Python 3.10 (installed for sidecar)
+echo   - Visual Studio 2022 Build Tools (C++ toolchain for fairseq)
 echo.
 echo This will NOT remove (uninstall manually if wanted):
 echo   - Python 3.12 (Windows Store - uninstall from Apps)
@@ -34,6 +40,20 @@ if exist venv (
     echo ✓ venv deleted
 )
 
+REM Delete sidecar worker virtual environment (all sidecar pip packages)
+if exist venv310 (
+    echo Deleting venv310 ^(sidecar pip packages^)...
+    rmdir /s /q venv310
+    echo ✓ venv310 deleted
+)
+
+REM Delete extracted voice models
+if exist voice_models (
+    echo Deleting extracted voice models...
+    rmdir /s /q voice_models
+    echo ✓ voice_models deleted
+)
+
 REM Delete inswapper model
 if exist inswapper_128.onnx (
     echo Deleting inswapper_128.onnx...
@@ -54,6 +74,12 @@ for /d /r . %%d in (__pycache__) do (
 )
 echo ✓ pycache cleared
 
+REM Clean sidecar pycache specifically
+if exist sidecar\__pycache__ (
+    rmdir /s /q sidecar\__pycache__
+    echo ✓ sidecar pycache cleared
+)
+
 echo.
 echo --- Removing InsightFace models ---
 
@@ -67,6 +93,40 @@ if exist "%USERPROFILE%\.insightface" (
 )
 
 echo.
+set /p REMOVE_GLOBAL=Also uninstall global sidecar prerequisites ^(Python 3.10 + VS Build Tools^) ? [y/N]: 
+if /i "%REMOVE_GLOBAL%"=="Y" goto UNINSTALL_GLOBAL
+if /i "%REMOVE_GLOBAL%"=="YES" goto UNINSTALL_GLOBAL
+goto FINISH
+
+:UNINSTALL_GLOBAL
+echo.
+echo --- Uninstalling global prerequisites ---
+
+where winget >nul 2>&1
+if errorlevel 1 (
+    echo winget not found; skipping global uninstall.
+    goto FINISH
+)
+
+echo Uninstalling Python 3.10 (if present)...
+winget uninstall -e --id Python.Python.3.10 --silent --accept-source-agreements >nul 2>&1
+if errorlevel 1 (
+    echo - Python 3.10 not found or uninstall failed ^(check manually^)
+) else (
+    echo ✓ Python 3.10 uninstalled
+)
+
+echo Uninstalling Visual Studio 2022 Build Tools (if present)...
+winget uninstall -e --id Microsoft.VisualStudio.2022.BuildTools --silent --accept-source-agreements >nul 2>&1
+if errorlevel 1 (
+    echo - VS Build Tools not found or uninstall failed ^(check manually^)
+) else (
+    echo ✓ VS Build Tools uninstalled
+)
+
+:FINISH
+
+echo.
 echo =============================================
 echo ✓ Cleanup complete!
 echo.
@@ -74,6 +134,10 @@ echo Still installed - remove manually if wanted:
 echo.
 echo  Python 3.12:
 echo    Settings ^> Apps ^> search "Python" ^> Uninstall
+echo.
+echo  Optional sidecar prerequisites:
+echo    Settings ^> Apps ^> uninstall "Python 3.10"
+echo    Settings ^> Apps ^> uninstall "Visual Studio 2022 Build Tools"
 echo.
 echo  CUDA Toolkits:
 echo    Control Panel ^> Programs ^> Uninstall:

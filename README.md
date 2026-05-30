@@ -5,6 +5,7 @@ Real-time AI face swapping with your webcam. Upload photos or animated character
 ## Features
 
 ✨ **Real-time Face Swapping** - Live webcam feed with AI face replacement
+🎙️ **Real-time Voice Changer (RVC)** - Mic-to-speaker conversion with local `.pth/.index` model
 🎨 **Multiple Targets** - Upload multiple faces (photos, characters, etc.)
 🌐 **Web Interface** - Simple, modern UI for control and streaming
 🚀 **GPU Optimized** - Built for RTX 5080 (CUDA support)
@@ -17,6 +18,7 @@ Real-time AI face swapping with your webcam. Upload photos or animated character
 - **GPU:** NVIDIA GPU with CUDA support (RTX 5080 recommended)
 - **Python:** 3.9+
 - **Webcam:** Any webcam
+- **Audio:** Microphone + speakers/headphones
 
 ## Setup
 
@@ -36,6 +38,41 @@ venv\Scripts\activate
 pip install -r requirements.txt
 python main.py
 ```
+
+### Voice Model
+
+The app now expects your RVC zip at:
+
+`C:\Users\robmc\Downloads\ryanreynoldsvoice.zip`
+
+On first voice start, it extracts the model into `voice_models/` and loads the first `.pth` + `.index` found.
+
+### Python 3.12 Note
+
+- Base app (video face swap) runs on Python 3.12.
+- Voice conversion now runs as a separate sidecar worker process in its own Python runtime.
+- This avoids camera regressions and keeps RVC dependencies isolated.
+
+### Sidecar Worker Setup (True RVC)
+
+Run once from project root:
+
+```bat
+sidecar\setup_worker.bat
+```
+
+This script:
+- Installs Python 3.10 (if missing)
+- Creates `venv310/`
+- Installs worker deps from `sidecar/requirements-worker.txt`
+
+Optional override if your worker Python lives elsewhere:
+
+```bat
+set RVC_WORKER_PYTHON=C:\path\to\worker\python.exe
+```
+
+When you click **Start Voice**, the main app auto-starts `sidecar/rvc_worker.py` and proxies all `/voice/*` calls to it.
 
 ### Ubuntu/WSL
 
@@ -87,6 +124,22 @@ You'll see your live webcam feed on the left with upload controls on the right.
 - Multiple targets can be uploaded
 - Switch between them by clicking "Select"
 - Delete targets with the "Delete" button
+
+### 4. Start Voice Changer
+
+- In the **Voice Changer (RVC)** panel, set pitch/index/latency block size.
+- Choose output routing:
+  - Enable **Prefer virtual audio output** to route to VB-Cable/Voicemeeter when detected.
+  - Or manually choose an output device from the dropdown.
+- Click **Start Voice**.
+- Speak into your mic and monitor output from your selected playback device.
+- Click **Stop Voice** when done.
+
+### 5. Use in Zoom/Discord/OBS
+
+- Install a virtual audio device like **VB-CABLE** (or Voicemeeter).
+- In this app, enable **Prefer virtual audio output** and start voice.
+- In Zoom/Discord/OBS microphone settings, select the virtual cable output as input.
 
 ## Tips
 
@@ -166,6 +219,10 @@ face-swap-stream/
 - `GET /targets` - List available targets
 - `POST /set_target/{filename}` - Activate a target
 - `DELETE /target/{filename}` - Delete a target
+- `GET /voice/status` - Voice changer runtime status
+- `GET /voice/devices` - Available audio input/output devices + recommended virtual output
+- `POST /voice/start` - Start RVC mic->speaker conversion
+- `POST /voice/stop` - Stop voice conversion
 
 ## Performance Notes
 

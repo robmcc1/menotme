@@ -23,6 +23,7 @@ share/python-wheels/
 MANIFEST
 env/
 venv/
+venv310/
 ENV/
 env.bak/
 venv.bak/
@@ -41,3 +42,4 @@ uploads/
 *.onnx
 models/
 insightface_model/
+voice_models/

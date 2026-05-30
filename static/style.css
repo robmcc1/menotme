@@ -38,7 +38,7 @@ header .subtitle {
 
 main {
     display: grid;
-    grid-template-columns: 2fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(340px, 400px);
     gap: 30px;
     margin-bottom: 40px;
 }
@@ -107,7 +107,7 @@ main {
     gap: 20px;
 }
 
-.control-panel, .target-list, .camera-panel, .obs-panel, .info-panel {
+.control-panel, .target-list, .camera-panel, .voice-panel, .obs-panel, .info-panel {
     background: rgba(255, 255, 255, 0.05);
     backdrop-filter: blur(10px);
     border: 1px solid rgba(102, 126, 234, 0.3);
@@ -115,10 +115,55 @@ main {
     padding: 20px;
 }
 
-.control-panel h2, .target-list h2, .camera-panel h2, .obs-panel h2, .info-panel h3 {
+.control-panel h2, .target-list h2, .camera-panel h2, .voice-panel h2, .obs-panel h2, .info-panel h3 {
     margin-bottom: 15px;
     font-size: 1.1rem;
     color: #667eea;
+}
+
+.voice-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.voice-grid label {
+    font-size: 0.85rem;
+    color: #cfd5ff;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.voice-grid input,
+.voice-grid select {
+    background: rgba(102, 126, 234, 0.1);
+    color: #fff;
+    border: 1px solid rgba(102, 126, 234, 0.4);
+    border-radius: 6px;
+    padding: 8px 10px;
+}
+
+.voice-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+}
+
+.voice-options {
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+}
+
+.voice-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.85rem;
+    color: #cfd5ff;
 }
 
 .camera-controls {
@@ -319,8 +364,12 @@ footer {
 }
 
 /* Responsive */
-@media (max-width: 900px) {
+@media (max-width: 980px) {
     main {
+        grid-template-columns: 1fr;
+    }
+
+    .voice-grid {
         grid-template-columns: 1fr;
     }
 
@@ -347,7 +396,7 @@ footer {
         margin-bottom: 20px;
     }
 
-    .control-panel, .target-list, .camera-panel, .obs-panel, .info-panel {
+    .control-panel, .target-list, .camera-panel, .voice-panel, .obs-panel, .info-panel {
         padding: 15px;
     }
 
